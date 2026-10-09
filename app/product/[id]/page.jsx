@@ -2,8 +2,12 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
+import dynamic from "next/dynamic";
 import { inr, deliveryEstimate } from "../../../lib/pricing";
 import { useStore } from "../../../components/StoreContext";
+
+const Viewer3D = dynamic(() => import("../../../components/Viewer3D"), { ssr: false });
+const SHAPES = { mug: "mug", bottle: "bottle", "pad-large": "pad", "pad-small": "pad", keychain: "disc", tee: "cloth" };
 
 export default function PDP() {
   const { id } = useParams();
@@ -16,6 +20,7 @@ export default function PDP() {
   const [design, setDesign] = useState(null); // {id, url(local preview), name}
   const [quality, setQuality] = useState(null);
   const [pin, setPin] = useState("");
+  const [mode, setMode] = useState("photo"); // photo | 3d | video
   const [uploading, setUploading] = useState(false);
   const fileRef = useRef(null);
 
@@ -67,17 +72,35 @@ export default function PDP() {
       <p className="crumbs"><Link href="/shop">Shop</Link> / {p.cat} / {p.name}</p>
       <div className="pdp">
         <div className="pdp-left">
-          <div className="mock">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={p.img} alt={p.name} />
-            {design && (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img className="mock-design" src={design.url} alt="Your design preview"
-                style={{ left: `${p.print.x}%`, top: `${p.print.y}%`, width: `${p.print.w}%`, height: `${p.print.h}%`, borderRadius: p.print.radius }} />
-            )}
-            {text && !design && <div className="mock-text" style={{ left: `${p.print.x}%`, top: `${p.print.y + p.print.h / 2 - 6}%`, width: `${p.print.w}%` }}>{text}</div>}
-            <span className="mock-cap">{design || text ? "LIVE PREVIEW — your design" : "Studio design shown — upload yours"}</span>
+          <div className="mode-tabs" role="tablist">
+            <button className={mode === "photo" ? "on" : ""} onClick={() => setMode("photo")}>📷 Photo</button>
+            <button className={mode === "3d" ? "on" : ""} onClick={() => setMode("3d")}>🧊 3D · 360°</button>
+            <button className={mode === "video" ? "on" : ""} onClick={() => setMode("video")}>🎬 Video Spin</button>
           </div>
+          {mode === "photo" ? (
+            <div className="mock">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={p.img} alt={p.name} />
+              {design && (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img className="mock-design" src={design.url} alt="Your design preview"
+                  style={{ left: `${p.print.x}%`, top: `${p.print.y}%`, width: `${p.print.w}%`, height: `${p.print.h}%`, borderRadius: p.print.radius }} />
+              )}
+              {text && !design && <div className="mock-text" style={{ left: `${p.print.x}%`, top: `${p.print.y + p.print.h / 2 - 6}%`, width: `${p.print.w}%` }}>{text}</div>}
+              <span className="mock-cap">{design || text ? "LIVE PREVIEW — your design" : "Studio design shown — upload yours"}</span>
+            </div>
+          ) : (
+            <Viewer3D
+              key={mode}
+              shape={SHAPES[p.id] || "mug"}
+              designSrc={design?.url || null}
+              text={text}
+              productName={p.name}
+              printZone={p.print}
+              basePhoto={p.img}
+              autoSpin={mode === "video"}
+            />
+          )}
           <div className="pdp-points">
             <span>✓ Free proof before printing</span><span>✓ No fade · No crack · No peel</span><span>✓ Made in Barasat, WB</span>
           </div>
