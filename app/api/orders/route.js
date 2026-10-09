@@ -1,0 +1,70 @@
+import { NextResponse } from "next/server";
+import { currentUser } from "../../../lib/auth";
+import { updateDB, readDB, ORDER_STATUSES } from "../../../lib/db";
+import { deliveryCharge } from "../../../lib/pricing";
+
+export async function GET() {
+  const u = await currentUser();
+  if (!u) return NextResponse.json({ error: "Login required" }, { status: 401 });
+  const db = await readDB();
+  const mine = db.orders.filter((o) => o.userId === u.id).sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+  return NextResponse.json({ orders: mine });
+}
+
+export async function POST(req) {
+  const u = await currentUser();
+  if (!u) return NextResponse.json({ error: "Login required" }, { status: 401 });
+  const { items, addressId, giftWrap, giftNote } = await req.json();
+  if (!Array.isArray(items) || !items.length) return NextResponse.json({ error: "Your cart is empty." }, { status: 400 });
+
+  const order = await updateDB((db) => {
+    const me = db.users.find((x) => x.id === u.id);
+    const addr = me.addresses.find((a) => a.id === addressId) || me.addresses.find((a) => a.isDefault);
+    if (!addr) throw new Error("NO_ADDRESS");
+    let subtotal = 0;
+    let hasHeavy = false;
+    const lines = items.map((it) => {
+      const p = db.products.find((x) => x.id === it.productId && x.active);
+      if (!p) throw new Error("BAD_PRODUCT");
+      const qty = Math.max(1, Math.min(100, Number(it.qty) || 1));
+      if (typeof p.stock === "number" && p.stock < qty) throw new Error("OUT_OF_STOCK:" + p.name);
+      let unit = p.price;
+      if (p.id === "keychain" && String(it.option || "").startsWith("Double")) unit += 50;
+      subtotal += unit * qty;
+      if (p.weight >= 1) hasHeavy = true;
+      return {
+        productId: p.id, name: p.name, img: p.img, unit, qty,
+        option: it.option || (p.options?.values?.[0] ?? ""),
+        customText: it.customText || "", designId: it.designId || null,
+      };
+    });
+    const delivery = deliveryCharge(addr.pincode, hasHeavy, subtotal);
+    const wrapFee = giftWrap ? 49 : 0;
+    db.seq.order += 1;
+    const o = {
+      id: "SF" + db.seq.order,
+      userId: u.id, email: u.email, customer: me.name,
+      items: lines, address: addr,
+      subtotal, delivery, giftWrap: !!giftWrap, giftNote: giftNote || "", wrapFee,
+      total: subtotal + delivery + wrapFee,
+      payment: "UPI (Demo)", paymentStatus: "Paid · Demo",
+      statusIdx: 0, status: ORDER_STATUSES[0],
+      timeline: [{ status: ORDER_STATUSES[0], at: new Date().toISOString() }],
+      createdAt: new Date().toISOString(),
+    };
+    // Decrement stock now that every line has validated.
+    for (const l of lines) {
+      const p = db.products.find((x) => x.id === l.productId);
+      if (p && typeof p.stock === "number") p.stock = Math.max(0, p.stock - l.qty);
+    }
+    db.orders.push(o);
+    return o;
+  }).catch((e) => {
+    if (e.message === "NO_ADDRESS") return null;
+    if (e.message && e.message.startsWith("OUT_OF_STOCK:")) return { stockError: e.message.slice("OUT_OF_STOCK:".length) };
+    throw e;
+  });
+  if (order && order.stockError) return NextResponse.json({ error: `Sorry — ${order.stockError} doesn't have enough stock left for that quantity. Lower the quantity or check back after a restock.` }, { status: 400 });
+  if (!order) return NextResponse.json({ error: "Please add a delivery address first." }, { status: 400 });
+  return NextResponse.json({ order });
+}

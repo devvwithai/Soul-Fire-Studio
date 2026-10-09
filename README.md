@@ -1,4 +1,4 @@
-# 🔥 Soulfire Studio — Website
+# 🔥 Soulfire Studio — Full-Stack E-Commerce Store
 
 Official website for **Soulfire Studio**, a custom sublimation printing studio from
 Barasat, West Bengal, shipping across India.
@@ -11,9 +11,12 @@ Barasat, West Bengal, shipping across India.
 Custom mugs · T-shirts · Large & classic mouse pads · MDF keychains · 750ml sipper bottles
 
 ## Highlights
-- Interactive **Order Builder** — pick product / quantity / print style / extras and copy a ready-to-send order brief
-- The studio's real 8-step in-house process (Order In → Design → Print → Heat Press → QC → Pack → Ship → Delivered)
-- Brand suite section showing the logo in all its official forms
+- Full **e-commerce store**: shop with category filters/search/sort, product pages, cart, checkout
+- **Live design customiser** — upload a photo, see it on the product instantly, with a print-quality check
+- **Accounts**: register/login, orders with live 8-step tracking, saved designs, wishlist, addresses, profile settings
+- **Admin panel**: advance orders through the pipeline, edit prices/MRP/stock live
+- **Demo UPI checkout** (Cashfree live payments plug in later); delivery priced from contracted Delhivery rates, free over ₹699
+- Data in Vercel Blob, sessions via signed JWT cookies, passwords bcrypt-hashed
 
 ## Run locally
 ```bash
