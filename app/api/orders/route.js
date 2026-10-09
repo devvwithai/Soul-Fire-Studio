@@ -23,11 +23,21 @@ export async function POST(req) {
     if (!addr) throw new Error("NO_ADDRESS");
     let subtotal = 0;
     let hasHeavy = false;
+    // Aggregate quantities per product FIRST — duplicate lines of the same
+    // product must not each pass the stock check while summing past stock.
+    const wanted = {};
+    for (const it of items) {
+      const q = Math.max(1, Math.min(100, Number(it.qty) || 1));
+      wanted[it.productId] = (wanted[it.productId] || 0) + q;
+    }
+    for (const [pid, q] of Object.entries(wanted)) {
+      const p = db.products.find((x) => x.id === pid && x.active);
+      if (!p) throw new Error("BAD_PRODUCT");
+      if (typeof p.stock === "number" && p.stock < q) throw new Error("OUT_OF_STOCK:" + p.name);
+    }
     const lines = items.map((it) => {
       const p = db.products.find((x) => x.id === it.productId && x.active);
-      if (!p) throw new Error("BAD_PRODUCT");
       const qty = Math.max(1, Math.min(100, Number(it.qty) || 1));
-      if (typeof p.stock === "number" && p.stock < qty) throw new Error("OUT_OF_STOCK:" + p.name);
       let unit = p.price;
       if (p.id === "keychain" && String(it.option || "").startsWith("Double")) unit += 50;
       subtotal += unit * qty;

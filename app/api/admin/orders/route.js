@@ -68,6 +68,7 @@ export async function PATCH(req) {
   const a = await requireAdmin();
   if (!a) return NextResponse.json({ error: "Admin only" }, { status: 403 });
   const { id, statusIdx } = await req.json();
+  if (!Number.isFinite(Number(statusIdx))) return NextResponse.json({ error: "Invalid status." }, { status: 400 });
   const order = await updateDB((db) => {
     const o = db.orders.find((x) => x.id === id);
     if (!o) return null;
