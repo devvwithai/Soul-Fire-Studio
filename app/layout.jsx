@@ -4,7 +4,7 @@ import { StoreProvider } from "../components/StoreContext";
 import Header, { Footer } from "../components/Header";
 
 const display = Archivo({ weight: ["600", "700", "800", "900"], subsets: ["latin"], variable: "--font-display" });
-const body = Inter({ weight: ["400", "500", "600", "700"], subsets: ["latin"], variable: "--font-body" });
+const body = Inter({ weight: ["400", "500", "600", "700", "800"], subsets: ["latin"], variable: "--font-body" });
 
 const SITE = "https://soul-fire-studio.vercel.app";
 

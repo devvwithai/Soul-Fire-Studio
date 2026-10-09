@@ -504,3 +504,14 @@ textarea.inp { resize: vertical; font-family: inherit; }
 .faq-item { border: 1px solid var(--line); border-radius: 16px; background: linear-gradient(180deg, var(--panel-2), var(--panel)); padding: 4px 20px; }
 .faq-item summary { cursor: pointer; font-weight: 700; font-size: 15.5px; padding: 14px 0; list-style-position: inside; }
 .faq-item p { color: var(--muted); line-height: 1.7; padding: 0 0 16px; font-size: 14.5px; }
+
+/* v4.1 · mobile hardening (360px) */
+.toast { max-width: 92vw; text-align: center; }
+@media (max-width: 600px) {
+  .cart-row { flex-wrap: wrap; }
+  .cart-row img { width: 64px; height: 52px; }
+  .cart-info { flex: 1 1 60%; }
+  .summary-panel { position: static; }
+  .order-card { flex-wrap: wrap; }
+  .hdr-actions .icon-btn { width: 38px; height: 38px; }
+}

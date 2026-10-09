@@ -36,6 +36,7 @@ function drawFlame(ctx, x, y, s, color) {
 export default function Viewer3D({ shape = "mug", designSrc, text = "", productName = "product", printZone, basePhoto, autoSpin = false }) {
   const mountRef = useRef(null);
   const stateRef = useRef({});
+  const recordingRef = useRef(false);
   const [fit, setFit] = useState(shape === "mug" || shape === "bottle" ? "center" : "wrap");
   const [scale, setScale] = useState(1);
   const [spin, setSpin] = useState(autoSpin);
@@ -76,6 +77,14 @@ export default function Viewer3D({ shape = "mug", designSrc, text = "", productN
         ctx.drawImage(design, zx + (printZone.w / 100 * W - design.width * ds) / 2, zy + (printZone.h / 100 * H - design.height * ds) / 2, design.width * ds, design.height * ds);
         ctx.globalAlpha = 1;
       }
+      if (text && printZone) {
+        ctx.fillStyle = "#eaf6ff";
+        ctx.font = `800 ${Math.round(H * 0.045)}px Arial, sans-serif`;
+        ctx.textAlign = "center";
+        ctx.shadowColor = "rgba(0,0,0,.6)"; ctx.shadowBlur = 8;
+        ctx.fillText(text.slice(0, 28), ((printZone.x + printZone.w / 2) / 100) * W, ((printZone.y + printZone.h) / 100) * H + H * 0.05);
+        ctx.shadowBlur = 0;
+      }
     } else {
       ctx.fillStyle = conf.base; ctx.fillRect(0, 0, W, H);
       if (design) {
@@ -83,11 +92,12 @@ export default function Viewer3D({ shape = "mug", designSrc, text = "", productN
           const s = Math.max(W / design.width, H / design.height);
           ctx.drawImage(design, (W - design.width * s) / 2, (H - design.height * s) / 2, design.width * s, design.height * s);
         } else {
-          // centred in the front zone (mug/bottle: x 27–73%; flat: whole face with margin)
-          const zx = conf.kind === "pad" || conf.kind === "disc" ? W * 0.04 : W * 0.27;
-          const zw = (conf.kind === "pad" || conf.kind === "disc" ? W * 0.92 : W * 0.46) * scale;
-          const zy = conf.kind === "pad" || conf.kind === "disc" ? H * 0.04 : H * 0.16;
-          const zh = (conf.kind === "pad" || conf.kind === "disc" ? H * 0.92 : H * 0.68) * scale;
+          // Anchored by CENTRE, not by the zone's left edge — otherwise the
+          // size slider drags the logo sideways as the zone grows/shrinks.
+          const maxW = conf.kind === "pad" || conf.kind === "disc" ? W * 0.92 : W * 0.46;
+          const maxH = conf.kind === "pad" || conf.kind === "disc" ? H * 0.92 : H * 0.68;
+          const zw = maxW * scale, zh = maxH * scale;
+          const zx = W / 2 - zw / 2, zy = H / 2 - zh / 2;
           const ds = Math.min(zw / design.width, zh / design.height);
           ctx.drawImage(design, zx + (zw - design.width * ds) / 2, zy + (zh - design.height * ds) / 2, design.width * ds, design.height * ds);
         }
@@ -210,7 +220,8 @@ export default function Viewer3D({ shape = "mug", designSrc, text = "", productN
       controls.maxPolarAngle = Math.PI * 0.55;
     } else if (conf.kind === "disc") {
       const edge = new THREE.Mesh(new THREE.CylinderGeometry(0.98, 0.98, 0.09, 72), new THREE.MeshStandardMaterial({ color: 0xd8dde3, roughness: 0.5 }));
-      edge.rotation.x = 0; group.add(edge);
+      edge.rotation.x = Math.PI / 2; // coin rim: cylinder axis must run front-to-back (Z)
+      group.add(edge);
       const front = new THREE.Mesh(new THREE.CircleGeometry(0.97, 72), texMat({ roughness: 0.5 }));
       front.position.z = 0.048; group.add(front);
       const back = new THREE.Mesh(new THREE.CircleGeometry(0.97, 72), texMat({ roughness: 0.5 }));
@@ -266,7 +277,11 @@ export default function Viewer3D({ shape = "mug", designSrc, text = "", productN
   }, [shape]);
 
   useEffect(() => { buildTexture(); }, [designSrc, text, fit, scale]);
-  useEffect(() => { if (stateRef.current.controls) stateRef.current.controls.autoRotate = spin && !recording; }, [spin, recording]);
+  useEffect(() => {
+    // While recording, downloadVideo owns autoRotate — this effect must not
+    // fight it (the state-driven version used to cancel the recording spin).
+    if (stateRef.current.controls && !recordingRef.current) stateRef.current.controls.autoRotate = spin;
+  }, [spin]);
 
   const downloadVideo = async () => {
     const st = stateRef.current;
@@ -283,8 +298,10 @@ export default function Viewer3D({ shape = "mug", designSrc, text = "", productN
       a.download = `${productName.replace(/\s+/g, "-").toLowerCase()}-360.${mime.includes("mp4") ? "mp4" : "webm"}`;
       a.click();
       setTimeout(() => URL.revokeObjectURL(a.href), 4000);
+      recordingRef.current = false;
       setRecording(false);
     };
+    recordingRef.current = true;
     setRecording(true);
     const prev = st.controls.autoRotateSpeed;
     st.controls.autoRotate = true; st.controls.autoRotateSpeed = 10; // ≈ one full turn in ~6s

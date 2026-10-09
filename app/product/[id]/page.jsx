@@ -63,7 +63,7 @@ export default function PDP() {
         : { t: "Too small ⚠", cls: "bad", d: `${img.naturalWidth}×${img.naturalHeight}px — may look soft. A bigger photo will print much better.` });
     };
     img.src = url;
-    if (!user) {
+    if (user === null) {
       const guest = { id: null, url, name: file.name, pendingFile: file };
       // Keep a data-URL copy (≤2.5MB) so the design survives login and is
       // uploaded for real at checkout — bigger files ask for login first.
@@ -78,14 +78,24 @@ export default function PDP() {
       setDesign(guest);
       return;
     }
+    // user is an object, or still undefined (auth loading) — try the real
+    // upload; a 401 means guest, so fall back to the ride-along path.
+    setDesign({ id: null, url, name: file.name, pendingFile: file });
     setUploading(true);
     const fd = new FormData();
     fd.append("file", file);
     const r = await fetch("/api/upload", { method: "POST", body: fd });
-    const d = await r.json();
+    const d = await r.json().catch(() => ({}));
     setUploading(false);
     if (d.design) setDesign({ id: d.design.id, url: `/api/designs/${d.design.id}/raw`, name: d.design.name });
-    else { setDesign({ id: null, url, name: file.name }); say(d.error || "Upload failed, preview only"); }
+    else if (r.status === 401) {
+      if (file.size <= 2.5 * 1024 * 1024) {
+        const rd = new FileReader();
+        rd.onload = () => setDesign((dd) => (dd && dd.name === file.name ? { ...dd, dataUrl: rd.result } : dd));
+        rd.readAsDataURL(file);
+        say("Preview ready — login at checkout to save the design");
+      } else say("Preview ready — login first so we can save designs over 2.5MB");
+    } else say(d.error || "Upload failed, preview only");
   };
 
   const item = () => ({ productId: p.id, name: p.name, img: p.img, price: unit, qty, option, customText: text, designId: design?.id || null, designName: design?.name || "", designDataUrl: design?.id ? null : design?.dataUrl || null });
@@ -114,7 +124,7 @@ export default function PDP() {
             </div>
           ) : (
             <Viewer3D
-              key={mode}
+              key={`${p.id}-${mode}`}
               shape={SHAPES[p.id] || "mug"}
               designSrc={design?.url || null}
               text={text}

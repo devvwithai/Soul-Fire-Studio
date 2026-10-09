@@ -1,5 +1,5 @@
 "use client";
-import { createContext, useContext, useEffect, useMemo, useState, useCallback } from "react";
+import { createContext, useContext, useEffect, useMemo, useRef, useState, useCallback } from "react";
 
 const StoreCtx = createContext(null);
 export const useStore = () => useContext(StoreCtx);
@@ -26,7 +26,12 @@ export function StoreProvider({ children }) {
     try { localStorage.setItem("sf_cart", JSON.stringify(cart)); } catch {}
   }, [cart]);
 
-  const say = (msg) => { setToast(msg); setTimeout(() => setToast(""), 2600); };
+  const toastTimer = useRef(null);
+  const say = (msg) => {
+    setToast(msg);
+    if (toastTimer.current) clearTimeout(toastTimer.current);
+    toastTimer.current = setTimeout(() => setToast(""), 2600);
+  };
 
   const addToCart = (item) => {
     if (!item.productId || !(item.price > 0)) { say("That product is still loading — try again in a second"); return; }
@@ -40,7 +45,7 @@ export function StoreProvider({ children }) {
   };
 
   const updateQty = (idx, qty) =>
-    setCart((c) => (qty <= 0 ? c.filter((_, i) => i !== idx) : c.map((x, i) => (i === idx ? { ...x, qty } : x))));
+    setCart((c) => (qty <= 0 ? c.filter((_, i) => i !== idx) : c.map((x, i) => (i === idx ? { ...x, qty: Math.min(100, qty) } : x))));
   const removeItem = (idx) => setCart((c) => c.filter((_, i) => i !== idx));
   const clearCart = () => setCart([]);
 
