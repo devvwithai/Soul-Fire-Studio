@@ -515,3 +515,50 @@ textarea.inp { resize: vertical; font-family: inherit; }
   .order-card { flex-wrap: wrap; }
   .hdr-actions .icon-btn { width: 38px; height: 38px; }
 }
+
+/* ═══ v5 ATELIER — classical, professional, less "AI" ═══
+   Serif display type (Fraunces), warm ivory as the primary action colour,
+   sky blue demoted to a jeweller's accent: prices, links, the flame. */
+:root {
+  --ivory: #f2ede3;
+  --ivory-dim: #cfc8b8;
+  --line: rgba(242, 237, 227, 0.10);
+}
+body { background: #08090b; }
+h1, h2, h3, .page-title, .brand-name, .lockup-word, .stat b, .price, .hero2 h1 {
+  font-family: var(--font-display), Georgia, serif;
+  letter-spacing: 0.01em;
+}
+h1 { font-weight: 600; }
+h2 { font-weight: 600; }
+.hl { font-style: italic; font-weight: 500; }
+.kicker {
+  font-family: var(--font-body), sans-serif; text-transform: uppercase;
+  letter-spacing: 0.28em; font-size: 11px; font-weight: 600; color: var(--sky);
+}
+.brand-name { font-size: 17px; letter-spacing: 0.06em; font-weight: 600; }
+.btn {
+  background: var(--ivory); color: #0b0c0e; border: 1px solid var(--ivory);
+  font-weight: 600; letter-spacing: 0.02em;
+}
+.btn:hover { background: #fff; border-color: #fff; }
+.btn.ghost { background: transparent; color: var(--ivory); border-color: rgba(242,237,227,.35); }
+.btn.ghost:hover { border-color: var(--ivory); background: rgba(242,237,227,.06); }
+.btn:disabled { opacity: .55; }
+.topbar { background: var(--ivory); color: #141310; letter-spacing: 0.04em; }
+.marquee-track { font-family: var(--font-display), Georgia, serif; font-style: italic; letter-spacing: 0.08em; text-transform: none; font-size: 15px; }
+.card { border-color: var(--line); background: linear-gradient(180deg, #101215, #0b0d0f); }
+.card:hover { border-color: rgba(56, 200, 255, 0.35); }
+.card .price, .price { color: var(--sky-soft); font-weight: 600; }
+.viewer3d-wrap {
+  background: radial-gradient(115% 90% at 50% 16%, #232c36 0%, #10151c 52%, #070a0e 100%);
+  border-color: var(--line);
+}
+.pdp-media, .pdp-photo { border-color: var(--line); }
+.mode-tabs button.on { background: var(--ivory); color: #0b0c0e; border-color: var(--ivory); }
+input.inp, select.inp, textarea.inp { border-color: var(--line); background: #0d0f11; }
+input.inp:focus, select.inp:focus, textarea.inp:focus { border-color: rgba(56,200,255,.55); outline: none; }
+.faq-item summary { font-family: var(--font-display), Georgia, serif; font-size: 17px; font-weight: 600; }
+.diwali h2 { font-family: var(--font-display), Georgia, serif; }
+.site-footer { border-top-color: var(--line); }
+.status-pill { letter-spacing: 0.08em; }

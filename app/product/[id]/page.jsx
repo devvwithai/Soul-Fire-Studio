@@ -76,6 +76,7 @@ export default function PDP() {
         say("Preview ready — login first so we can save designs over 2.5MB");
       }
       setDesign(guest);
+      setMode("3d"); // jump straight into the 360° view with their art on the product
       return;
     }
     // user is an object, or still undefined (auth loading) — try the real
@@ -87,15 +88,15 @@ export default function PDP() {
     const r = await fetch("/api/upload", { method: "POST", body: fd });
     const d = await r.json().catch(() => ({}));
     setUploading(false);
-    if (d.design) setDesign({ id: d.design.id, url: `/api/designs/${d.design.id}/raw`, name: d.design.name });
-    else if (r.status === 401) {
+    if (d.design) { setDesign({ id: d.design.id, url: `/api/designs/${d.design.id}/raw`, name: d.design.name }); setMode("3d"); }
+    else if (r.status === 401) { setMode("3d");
       if (file.size <= 2.5 * 1024 * 1024) {
         const rd = new FileReader();
         rd.onload = () => setDesign((dd) => (dd && dd.name === file.name ? { ...dd, dataUrl: rd.result } : dd));
         rd.readAsDataURL(file);
         say("Preview ready — login at checkout to save the design");
       } else say("Preview ready — login first so we can save designs over 2.5MB");
-    } else say(d.error || "Upload failed, preview only");
+    } else { setMode("3d"); say(d.error || "Upload failed, preview only"); }
   };
 
   const item = () => ({ productId: p.id, name: p.name, img: p.img, price: unit, qty, option, customText: text, designId: design?.id || null, designName: design?.name || "", designDataUrl: design?.id ? null : design?.dataUrl || null });
@@ -170,7 +171,7 @@ export default function PDP() {
               <div className="design-strip">
                 {myDesigns.map((d) => (
                   <button key={d.id} type="button" className={design?.id === d.id ? "on" : ""} title={d.name}
-                    onClick={() => { setDesign({ id: d.id, url: `/api/designs/${d.id}/raw`, name: d.name }); say("Design applied"); }}>
+                    onClick={() => { setDesign({ id: d.id, url: `/api/designs/${d.id}/raw`, name: d.name }); setMode("3d"); say("Design applied — 360° view"); }}>
                     {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img src={`/api/designs/${d.id}/raw`} alt={d.name} />
                   </button>

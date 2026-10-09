@@ -149,9 +149,11 @@ export default function Viewer3D({ shape = "mug", designSrc, text = "", productN
     mount.appendChild(renderer.domElement);
     renderer.domElement.style.cssText = "width:100%;height:100%;display:block;touch-action:none;";
 
+    texture.anisotropy = Math.min(16, renderer.capabilities.getMaxAnisotropy());
     const scene = new THREE.Scene();
     const pmrem = new THREE.PMREMGenerator(renderer);
     scene.environment = pmrem.fromScene(new RoomEnvironment(), 0.04).texture;
+    if ("environmentIntensity" in scene) scene.environmentIntensity = 0.5; // softer — kills the washy CG look
 
     const camera = new THREE.PerspectiveCamera(38, 1, 0.1, 100);
     camera.position.set(0, 1.1, 6.4);
@@ -166,24 +168,41 @@ export default function Viewer3D({ shape = "mug", designSrc, text = "", productN
     stateRef.current.renderer = renderer;
     controls.saveState();
 
-    const key = new THREE.DirectionalLight(0xffffff, 2.4);
+    const key = new THREE.DirectionalLight(0xfff1de, 2.0);
     key.position.set(3.5, 6, 4); key.castShadow = true;
-    key.shadow.mapSize.set(1024, 1024);
+    key.shadow.mapSize.set(2048, 2048);
+    key.shadow.radius = 6; key.shadow.bias = -0.0004;
     scene.add(key);
-    const rim = new THREE.PointLight(0x38c8ff, 30, 30); rim.position.set(-5, 2.5, -4); scene.add(rim);
-    scene.add(new THREE.HemisphereLight(0xdfefff, 0x0a0f16, 0.55));
+    const rim = new THREE.PointLight(0x9fd8ff, 12, 30); rim.position.set(-5, 2.5, -4); scene.add(rim);
+    scene.add(new THREE.HemisphereLight(0xdfefff, 0x0a0f16, 0.4));
 
     const floor = new THREE.Mesh(
       new THREE.CircleGeometry(4.4, 48),
-      new THREE.ShadowMaterial({ opacity: 0.32 })
+      new THREE.ShadowMaterial({ opacity: 0.22 })
     );
     floor.rotation.x = -Math.PI / 2; floor.receiveShadow = true;
     scene.add(floor);
 
-    const texMat = (extra = {}) => new THREE.MeshStandardMaterial({ map: texture, roughness: 0.32, metalness: 0.02, envMapIntensity: 0.75, ...extra });
+    // Physical materials — clearcoat ceramic, sheen fabric, brushed metal —
+    // are what separate a product render from a plastic toy.
+    const texMat = (extra = {}) => new THREE.MeshPhysicalMaterial({ map: texture, roughness: 0.28, metalness: 0.0, clearcoat: 0.55, clearcoatRoughness: 0.32, envMapIntensity: 0.55, ...extra });
     const group = new THREE.Group();
-    const white = new THREE.MeshStandardMaterial({ color: 0xf4f6f8, roughness: 0.28, envMapIntensity: 0.7 });
-    const darkMetal = new THREE.MeshStandardMaterial({ color: 0x2a2f36, roughness: 0.45, metalness: 0.55 });
+    const white = new THREE.MeshPhysicalMaterial({ color: 0xf7f8f9, roughness: 0.22, clearcoat: 0.6, clearcoatRoughness: 0.25, envMapIntensity: 0.6 });
+    const darkMetal = new THREE.MeshStandardMaterial({ color: 0x2a2f36, roughness: 0.38, metalness: 0.85 });
+
+    // Soft contact shadow — a radial gradient pool under the product grounds
+    // it like a studio photo (the hard shadow alone reads as a game render).
+    const sc = document.createElement("canvas"); sc.width = sc.height = 256;
+    const sg = sc.getContext("2d");
+    const grad = sg.createRadialGradient(128, 128, 8, 128, 128, 128);
+    grad.addColorStop(0, "rgba(0,0,0,0.55)"); grad.addColorStop(0.55, "rgba(0,0,0,0.28)"); grad.addColorStop(1, "rgba(0,0,0,0)");
+    sg.fillStyle = grad; sg.fillRect(0, 0, 256, 256);
+    const contactTex = new THREE.CanvasTexture(sc);
+    const contact = new THREE.Mesh(new THREE.PlaneGeometry(4.6, 4.6), new THREE.MeshBasicMaterial({ map: contactTex, transparent: true, depthWrite: false }));
+    contact.rotation.x = -Math.PI / 2; contact.position.y = 0.01;
+    contact.renderOrder = 1;
+    scene.add(contact);
+    stateRef.current.contact = contact;
 
     if (conf.kind === "mug") {
       const body = new THREE.Mesh(new THREE.CylinderGeometry(1, 0.93, 2.1, 96, 1, true), texMat());
@@ -200,15 +219,19 @@ export default function Viewer3D({ shape = "mug", designSrc, text = "", productN
       handle.rotation.z = -Math.PI / 2; handle.position.x = 1.0; handle.castShadow = true; group.add(handle);
       group.position.y = 0.15; floor.position.y = -1.0;
     } else if (conf.kind === "bottle") {
-      const body = new THREE.Mesh(new THREE.CylinderGeometry(0.8, 0.94, 2.0, 96, 1, true), texMat({ roughness: 0.42 }));
+      const body = new THREE.Mesh(new THREE.CylinderGeometry(0.8, 0.94, 2.0, 96, 1, true), texMat({ roughness: 0.34, metalness: 0.85, clearcoat: 0.3 }));
       body.castShadow = true; group.add(body);
       const bBase = new THREE.Mesh(new THREE.CircleGeometry(0.94, 48), new THREE.MeshStandardMaterial({ color: 0x14171c, roughness: 0.5 }));
       bBase.rotation.x = Math.PI / 2; bBase.position.y = -1.0; group.add(bBase);
       const shoulderMat = new THREE.MeshStandardMaterial({ color: 0x14171c, roughness: 0.42, envMapIntensity: 0.6 });
       const shoulder = new THREE.Mesh(new THREE.CylinderGeometry(0.33, 0.8, 0.55, 64), shoulderMat);
       shoulder.position.y = 1.27; group.add(shoulder);
-      const cap = new THREE.Mesh(new THREE.CylinderGeometry(0.36, 0.36, 0.5, 48), darkMetal);
-      cap.position.y = 1.72; cap.castShadow = true; group.add(cap);
+      const neckRing = new THREE.Mesh(new THREE.TorusGeometry(0.34, 0.045, 14, 48), darkMetal);
+      neckRing.rotation.x = Math.PI / 2; neckRing.position.y = 1.52; group.add(neckRing);
+      const cap = new THREE.Mesh(new THREE.CylinderGeometry(0.37, 0.38, 0.42, 48), darkMetal);
+      cap.position.y = 1.76; cap.castShadow = true; group.add(cap);
+      const capTop = new THREE.Mesh(new THREE.CylinderGeometry(0.30, 0.37, 0.1, 48), darkMetal);
+      capTop.position.y = 2.0; group.add(capTop);
       group.position.y = -0.15; floor.position.y = -1.18;
     } else if (conf.kind === "pad") {
       const baseMat = new THREE.MeshStandardMaterial({ color: 0x0c0e11, roughness: 0.92 });
@@ -232,20 +255,24 @@ export default function Viewer3D({ shape = "mug", designSrc, text = "", productN
       link.position.y = 1.05; group.add(link);
       group.rotation.x = 0.15; floor.position.y = -1.35;
     } else if (conf.kind === "cloth") {
-      const geo = new THREE.PlaneGeometry(2.7, 3.1, 42, 42);
+      const geo = new THREE.PlaneGeometry(2.7, 3.1, 64, 64);
       const pos = geo.attributes.position;
       for (let i = 0; i < pos.count; i++) {
         const x = pos.getX(i), y = pos.getY(i);
-        pos.setZ(i, Math.sin(x * 1.15) * 0.13 + Math.cos(y * 0.8) * 0.05);
+        // Gentle body drape + edges that fall like real fabric, not a flag.
+        pos.setZ(i, Math.sin(x * 1.15) * 0.12 + Math.cos(y * 0.8) * 0.05
+          - Math.pow(Math.abs(x) / 1.35, 3) * 0.14
+          - Math.pow(Math.max(0, -y) / 1.55, 2) * 0.10);
       }
       geo.computeVertexNormals();
-      const cloth = new THREE.Mesh(geo, texMat({ roughness: 0.9, side: THREE.DoubleSide }));
+      const cloth = new THREE.Mesh(geo, texMat({ roughness: 0.92, clearcoat: 0, sheen: 0.5, sheenRoughness: 0.6, side: THREE.DoubleSide }));
       cloth.castShadow = true; group.add(cloth);
       controls.minAzimuthAngle = -1.15; controls.maxAzimuthAngle = 1.15;
       floor.position.y = -1.8;
     }
     scene.add(group);
     stateRef.current.group = group;
+    contact.position.y = floor.position.y + 0.02; // pool the soft shadow at each product's ground line
 
     const resize = () => {
       const w = mount.clientWidth, h = mount.clientHeight;

@@ -1,9 +1,9 @@
-import { Archivo, Inter } from "next/font/google";
+import { Fraunces, Inter } from "next/font/google";
 import "./globals.css";
 import { StoreProvider } from "../components/StoreContext";
 import Header, { Footer } from "../components/Header";
 
-const display = Archivo({ weight: ["600", "700", "800", "900"], subsets: ["latin"], variable: "--font-display" });
+const display = Fraunces({ weight: ["500", "600", "700"], style: ["normal", "italic"], subsets: ["latin"], variable: "--font-display" });
 const body = Inter({ weight: ["400", "500", "600", "700", "800"], subsets: ["latin"], variable: "--font-body" });
 
 const SITE = "https://soul-fire-studio.vercel.app";
