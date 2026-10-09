@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { requireAdmin } from "../../../../lib/auth";
 import { readDB, updateDB, ORDER_STATUSES } from "../../../../lib/db";
+import { parseJsonBody } from "../../../../lib/json";
 
 export async function GET(req) {
   const a = await requireAdmin();
@@ -67,7 +68,9 @@ export async function GET(req) {
 export async function PATCH(req) {
   const a = await requireAdmin();
   if (!a) return NextResponse.json({ error: "Admin only" }, { status: 403 });
-  const { id, statusIdx } = await req.json();
+  const parsed = await parseJsonBody(req);
+  if (!parsed.ok) return parsed.response;
+  const { id, statusIdx } = parsed.data;
   if (!Number.isFinite(Number(statusIdx))) return NextResponse.json({ error: "Invalid status." }, { status: 400 });
   const order = await updateDB((db) => {
     const o = db.orders.find((x) => x.id === id);

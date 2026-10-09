@@ -1,9 +1,12 @@
 import { NextResponse } from "next/server";
 import { readDB, ensureAdmin } from "../../../../lib/db";
 import { checkPass, makeSession, publicUser } from "../../../../lib/auth";
+import { parseJsonBody } from "../../../../lib/json";
 
 export async function POST(req) {
-  const { email, password } = await req.json();
+  const parsed = await parseJsonBody(req);
+  if (!parsed.ok) return parsed.response;
+  const { email, password } = parsed.data;
   const em = String(email || "").toLowerCase().trim();
   const db = await readDB();
   await ensureAdmin(db);

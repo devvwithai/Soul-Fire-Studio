@@ -1,8 +1,11 @@
 import { NextResponse } from "next/server";
 import { readDB, ensureAdmin } from "../../../lib/db";
+import { parseJsonBody } from "../../../lib/json";
 
 export async function POST(req) {
-  const { orderId, email } = await req.json();
+  const parsed = await parseJsonBody(req);
+  if (!parsed.ok) return parsed.response;
+  const { orderId, email } = parsed.data;
   const db = await readDB();
   await ensureAdmin(db);
   const o = db.orders.find((x) => x.id === String(orderId || "").toUpperCase().trim());

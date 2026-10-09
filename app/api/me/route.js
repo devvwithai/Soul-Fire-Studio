@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { currentUser, publicUser } from "../../../lib/auth";
 import { updateDB } from "../../../lib/db";
+import { parseJsonBody } from "../../../lib/json";
 
 export async function GET() {
   const u = await currentUser();
@@ -11,7 +12,9 @@ export async function GET() {
 export async function PATCH(req) {
   const u = await currentUser();
   if (!u) return NextResponse.json({ error: "Login required" }, { status: 401 });
-  const body = await req.json();
+  const parsed = await parseJsonBody(req);
+  if (!parsed.ok) return parsed.response;
+  const body = parsed.data;
   const updated = await updateDB((db) => {
     const me = db.users.find((x) => x.id === u.id);
     if (body.name) me.name = String(body.name).trim();

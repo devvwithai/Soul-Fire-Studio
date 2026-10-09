@@ -1,11 +1,14 @@
 import { NextResponse } from "next/server";
 import { requireAdmin } from "../../../../lib/auth";
 import { updateDB } from "../../../../lib/db";
+import { parseJsonBody } from "../../../../lib/json";
 
 export async function PATCH(req) {
   const a = await requireAdmin();
   if (!a) return NextResponse.json({ error: "Admin only" }, { status: 403 });
-  const { id, price, mrp, stock, active, name } = await req.json();
+  const parsed = await parseJsonBody(req);
+  if (!parsed.ok) return parsed.response;
+  const { id, price, mrp, stock, active, name } = parsed.data;
   for (const v of [price, mrp, stock]) {
     if (v !== undefined && !Number.isFinite(Number(v)))
       return NextResponse.json({ error: "Price, MRP and stock must be numbers." }, { status: 400 });

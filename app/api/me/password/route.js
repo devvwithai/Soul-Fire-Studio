@@ -1,11 +1,14 @@
 import { NextResponse } from "next/server";
 import { currentUser, checkPass, hashPass } from "../../../../lib/auth";
 import { updateDB } from "../../../../lib/db";
+import { parseJsonBody } from "../../../../lib/json";
 
 export async function POST(req) {
   const u = await currentUser();
   if (!u) return NextResponse.json({ error: "Login required" }, { status: 401 });
-  const { current, next } = await req.json();
+  const parsed = await parseJsonBody(req);
+  if (!parsed.ok) return parsed.response;
+  const { current, next } = parsed.data;
   if (!next || next.length < 6) return NextResponse.json({ error: "New password must be 6+ characters." }, { status: 400 });
   if (!(await checkPass(String(current || ""), u.passHash)))
     return NextResponse.json({ error: "Current password is incorrect." }, { status: 403 });

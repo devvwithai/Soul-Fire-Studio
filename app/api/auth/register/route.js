@@ -1,9 +1,12 @@
 import { NextResponse } from "next/server";
 import { updateDB, uid } from "../../../../lib/db";
 import { hashPass, makeSession, publicUser } from "../../../../lib/auth";
+import { parseJsonBody } from "../../../../lib/json";
 
 export async function POST(req) {
-  const { name, email, phone, password } = await req.json();
+  const parsed = await parseJsonBody(req);
+  if (!parsed.ok) return parsed.response;
+  const { name, email, phone, password } = parsed.data;
   const em = String(email || "").toLowerCase().trim();
   if (!name || !em || !password || password.length < 6)
     return NextResponse.json({ error: "Name, email and a 6+ character password are required." }, { status: 400 });

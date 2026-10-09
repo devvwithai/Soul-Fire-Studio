@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { currentUser } from "../../../lib/auth";
 import { updateDB, readDB, ORDER_STATUSES } from "../../../lib/db";
 import { deliveryCharge } from "../../../lib/pricing";
+import { parseJsonBody } from "../../../lib/json";
 
 export async function GET() {
   const u = await currentUser();
@@ -14,7 +15,9 @@ export async function GET() {
 export async function POST(req) {
   const u = await currentUser();
   if (!u) return NextResponse.json({ error: "Login required" }, { status: 401 });
-  const { items, addressId, giftWrap, giftNote, orderNote, couponCode } = await req.json();
+  const parsed = await parseJsonBody(req);
+  if (!parsed.ok) return parsed.response;
+  const { items, addressId, giftWrap, giftNote, orderNote, couponCode } = parsed.data;
   if (!Array.isArray(items) || !items.length) return NextResponse.json({ error: "Your cart is empty." }, { status: 400 });
 
   const order = await updateDB((db) => {

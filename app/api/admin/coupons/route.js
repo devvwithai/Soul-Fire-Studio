@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { requireAdmin } from "../../../../lib/auth";
 import { readDB, updateDB } from "../../../../lib/db";
+import { parseJsonBody } from "../../../../lib/json";
 
 export async function GET() {
   const a = await requireAdmin();
@@ -12,7 +13,9 @@ export async function GET() {
 export async function POST(req) {
   const a = await requireAdmin();
   if (!a) return NextResponse.json({ error: "Admin only" }, { status: 403 });
-  const { code, pct } = await req.json();
+  const parsed = await parseJsonBody(req);
+  if (!parsed.ok) return parsed.response;
+  const { code, pct } = parsed.data;
   const clean = String(code || "").toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 16);
   const p = Math.max(1, Math.min(90, Number(pct) || 0));
   if (!clean || !p) return NextResponse.json({ error: "Give a code and a discount % (1–90)." }, { status: 400 });
@@ -29,7 +32,9 @@ export async function POST(req) {
 export async function PATCH(req) {
   const a = await requireAdmin();
   if (!a) return NextResponse.json({ error: "Admin only" }, { status: 403 });
-  const { code, active } = await req.json();
+  const parsed2 = await parseJsonBody(req);
+  if (!parsed2.ok) return parsed2.response;
+  const { code, active } = parsed2.data;
   const coupons = await updateDB((db) => {
     const c = (db.coupons || []).find((x) => x.code === code);
     if (c) c.active = !!active;

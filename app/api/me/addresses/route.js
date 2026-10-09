@@ -1,11 +1,14 @@
 import { NextResponse } from "next/server";
 import { currentUser, publicUser } from "../../../../lib/auth";
 import { updateDB, uid } from "../../../../lib/db";
+import { parseJsonBody } from "../../../../lib/json";
 
 export async function POST(req) {
   const u = await currentUser();
   if (!u) return NextResponse.json({ error: "Login required" }, { status: 401 });
-  const a = await req.json();
+  const parsed = await parseJsonBody(req);
+  if (!parsed.ok) return parsed.response;
+  const a = parsed.data;
   if (!a.name || !a.phone || !a.pincode || !a.line || !a.city || !a.state)
     return NextResponse.json({ error: "Please fill all address fields." }, { status: 400 });
   const updated = await updateDB((db) => {
