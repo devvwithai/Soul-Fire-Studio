@@ -47,6 +47,7 @@ export default function Viewer3D({ shape = "mug", designSrc, text = "", productN
   const buildTexture = async () => {
     const st = stateRef.current;
     if (!st.canvas) return;
+    const token = (st.texToken = (st.texToken || 0) + 1);
     const { canvas } = st;
     const ctx = canvas.getContext("2d");
     const W = canvas.width, H = canvas.height;
@@ -61,6 +62,7 @@ export default function Viewer3D({ shape = "mug", designSrc, text = "", productN
       img.src = src;
     });
     const [design, photo] = await Promise.all([load(designSrc), conf.kind === "cloth" ? load(basePhoto) : null]);
+    if (st.texToken !== token) return; // a newer design already replaced this paint
 
     if (conf.kind === "cloth" && photo) {
       // cover the tee photo, then print design into its print zone
@@ -87,7 +89,7 @@ export default function Viewer3D({ shape = "mug", designSrc, text = "", productN
           const zy = conf.kind === "pad" || conf.kind === "disc" ? H * 0.04 : H * 0.16;
           const zh = (conf.kind === "pad" || conf.kind === "disc" ? H * 0.92 : H * 0.68) * scale;
           const ds = Math.min(zw / design.width, zh / design.height);
-          ctx.drawImage(design, zx + (zw / scale - design.width * ds) / 2 + (zw - zw / scale) / 2, zy + (zh / scale - design.height * ds) / 2 + (zh - zh / scale) / 2, design.width * ds, design.height * ds);
+          ctx.drawImage(design, zx + (zw - design.width * ds) / 2, zy + (zh - design.height * ds) / 2, design.width * ds, design.height * ds);
         }
       } else {
         // placeholder studio art
@@ -122,7 +124,9 @@ export default function Viewer3D({ shape = "mug", designSrc, text = "", productN
     const texture = new THREE.CanvasTexture(canvas);
     texture.colorSpace = THREE.SRGBColorSpace;
     texture.wrapS = THREE.RepeatWrapping;
-    texture.offset.x = 0.5; // calibrated: front zone centre faces the camera
+    // Calibrated for cylinders only: front-zone centre (u=0.5) faces the camera.
+    // Flat shapes (pad/disc/cloth) must NOT be offset or their design shifts half a turn.
+    if (conf.kind === "mug" || conf.kind === "bottle") texture.offset.x = 0.5;
     texture.anisotropy = 8;
     stateRef.current = { canvas, texture };
 
@@ -150,6 +154,7 @@ export default function Viewer3D({ shape = "mug", designSrc, text = "", productN
     controls.autoRotateSpeed = 2.4;
     stateRef.current.controls = controls;
     stateRef.current.renderer = renderer;
+    controls.saveState();
 
     const key = new THREE.DirectionalLight(0xffffff, 2.4);
     key.position.set(3.5, 6, 4); key.castShadow = true;
@@ -185,8 +190,10 @@ export default function Viewer3D({ shape = "mug", designSrc, text = "", productN
       handle.rotation.z = -Math.PI / 2; handle.position.x = 1.0; handle.castShadow = true; group.add(handle);
       group.position.y = 0.15; floor.position.y = -1.0;
     } else if (conf.kind === "bottle") {
-      const body = new THREE.Mesh(new THREE.CylinderGeometry(0.8, 0.94, 2.0, 96, 1, false), texMat({ roughness: 0.42 }));
+      const body = new THREE.Mesh(new THREE.CylinderGeometry(0.8, 0.94, 2.0, 96, 1, true), texMat({ roughness: 0.42 }));
       body.castShadow = true; group.add(body);
+      const bBase = new THREE.Mesh(new THREE.CircleGeometry(0.94, 48), new THREE.MeshStandardMaterial({ color: 0x14171c, roughness: 0.5 }));
+      bBase.rotation.x = Math.PI / 2; bBase.position.y = -1.0; group.add(bBase);
       const shoulderMat = new THREE.MeshStandardMaterial({ color: 0x14171c, roughness: 0.42, envMapIntensity: 0.6 });
       const shoulder = new THREE.Mesh(new THREE.CylinderGeometry(0.33, 0.8, 0.55, 64), shoulderMat);
       shoulder.position.y = 1.27; group.add(shoulder);
@@ -245,8 +252,14 @@ export default function Viewer3D({ shape = "mug", designSrc, text = "", productN
 
     return () => {
       cancelAnimationFrame(raf); ro.disconnect();
-      controls.dispose(); renderer.dispose();
-      mount.removeChild(renderer.domElement);
+      controls.dispose();
+      scene.traverse((o) => {
+        if (o.geometry) o.geometry.dispose();
+        if (o.material) (Array.isArray(o.material) ? o.material : [o.material]).forEach((m) => { if (m.map && m.map !== texture) m.map.dispose(); m.dispose(); });
+      });
+      pmrem.dispose();
+      renderer.dispose();
+      if (renderer.domElement.parentElement === mount) mount.removeChild(renderer.domElement);
       texture.dispose();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -293,6 +306,7 @@ export default function Viewer3D({ shape = "mug", designSrc, text = "", productN
         {fit === "center" && (conf.kind === "mug" || conf.kind === "bottle") && (
           <label className="vscale">Size <input type="range" min="0.5" max="1.4" step="0.05" value={scale} onChange={(e) => setScale(+e.target.value)} /></label>
         )}
+        <button className="vbtn" onClick={() => stateRef.current.controls?.reset()}>⟲ Front View</button>
         <button className={`vbtn ${spin ? "on" : ""}`} onClick={() => setSpin(!spin)}>{spin ? "⏸ Pause Spin" : "▶ Auto-Spin"}</button>
         <button className="vbtn rec" onClick={downloadVideo} disabled={recording}>{recording ? "● Recording…" : "⬇ 360° Video"}</button>
       </div>

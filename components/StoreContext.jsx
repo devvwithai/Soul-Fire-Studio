@@ -29,8 +29,9 @@ export function StoreProvider({ children }) {
   const say = (msg) => { setToast(msg); setTimeout(() => setToast(""), 2600); };
 
   const addToCart = (item) => {
+    if (!item.productId || !(item.price > 0)) { say("That product is still loading — try again in a second"); return; }
     setCart((c) => {
-      const key = (x) => [x.productId, x.option, x.customText, x.designId].join("|");
+      const key = (x) => [x.productId, x.option, x.customText, x.designId, x.designName].join("|");
       const ex = c.find((x) => key(x) === key(item));
       if (ex) return c.map((x) => (key(x) === key(item) ? { ...x, qty: Math.min(100, x.qty + item.qty) } : x));
       return [...c, item];

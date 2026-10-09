@@ -1,14 +1,16 @@
 "use client";
-import { useEffect, useMemo, useState } from "react";
+import { Suspense, useEffect, useMemo, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import ProductCard from "../../components/ProductCard";
 
 const CATS = ["All", "Mugs", "Apparel", "Desk", "Gifts", "Bottles"];
 
-export default function Shop() {
+function ShopInner() {
+  const params = useSearchParams();
   const [products, setProducts] = useState([]);
   const [cat, setCat] = useState("All");
   const [sort, setSort] = useState("featured");
-  const [q, setQ] = useState("");
+  const [q, setQ] = useState(params.get("q") || "");
   useEffect(() => { fetch("/api/products").then((r) => r.json()).then((d) => setProducts(d.products || [])); }, []);
 
   const list = useMemo(() => {
@@ -42,4 +44,8 @@ export default function Shop() {
       {!list.length && <p className="lead" style={{ marginTop: 30 }}>Nothing matches that — try another category.</p>}
     </div>
   );
+}
+
+export default function Shop() {
+  return <Suspense fallback={<div className="wrap page"><p className="lead">Loading the collection…</p></div>}><ShopInner /></Suspense>;
 }

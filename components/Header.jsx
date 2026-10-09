@@ -21,6 +21,10 @@ export default function Header() {
             <br /><span className="brand-sub">STUDIO</span>
           </span>
         </Link>
+        <form className="hdr-search" action="/shop" method="get" role="search">
+          <input name="q" type="search" placeholder="Search mugs, tees, pads…" aria-label="Search products" />
+          <button type="submit" aria-label="Search">🔍</button>
+        </form>
         <nav className="main-nav">
           {links.map(([href, label]) => (
             <Link key={href} href={href} className={path === href ? "on" : ""}>{label}</Link>

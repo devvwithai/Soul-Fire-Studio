@@ -11,7 +11,7 @@ export default function ProductCard({ p }) {
     <article className="pcard">
       <Link href={`/product/${p.id}`} className="pcard-img">
         {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src={p.img} alt={p.name} loading="lazy" />
+        <img src={p.img} alt={p.name} loading="lazy" decoding="async" />
         {p.badge && <span className="pbadge">{p.badge}</span>}
         {off > 0 && <span className="poff">{off}% OFF</span>}
         {typeof p.stock === "number" && p.stock <= 0 && <span className="pstock out">SOLD OUT</span>}
