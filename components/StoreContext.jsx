@@ -64,10 +64,10 @@ export function StoreProvider({ children }) {
   };
 
   const value = useMemo(() => ({
-    user, setUser, refreshUser, cart, addToCart, updateQty, removeItem, clearCart,
+    user, setUser, refreshUser, cart, setCart, addToCart, updateQty, removeItem, clearCart,
     cartCount: cart.reduce((s, x) => s + x.qty, 0),
     toggleWish, logout, say, toast,
-  }), [user, cart, toast]);
+  }), [user, cart, setCart, toast]);
 
   return <StoreCtx.Provider value={value}>{children}{toast ? <div className="toast">{toast}</div> : null}</StoreCtx.Provider>;
 }
