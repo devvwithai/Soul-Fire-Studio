@@ -5,6 +5,7 @@ import Link from "next/link";
 import dynamic from "next/dynamic";
 import { inr, deliveryEstimate } from "../../../lib/pricing";
 import { useStore } from "../../../components/StoreContext";
+import ProductCard from "../../../components/ProductCard";
 
 const Viewer3D = dynamic(() => import("../../../components/Viewer3D"), { ssr: false });
 const SHAPES = { mug: "mug", bottle: "bottle", "pad-large": "pad", "pad-small": "pad", keychain: "disc", tee: "cloth" };
@@ -21,6 +22,9 @@ export default function PDP() {
   const [quality, setQuality] = useState(null);
   const [pin, setPin] = useState("");
   const [mode, setMode] = useState("photo"); // photo | 3d | video
+  const [myDesigns, setMyDesigns] = useState([]);
+  const [designScale, setDesignScale] = useState(1);
+  const [allProducts, setAllProducts] = useState([]);
   const [uploading, setUploading] = useState(false);
   const fileRef = useRef(null);
 
@@ -28,9 +32,14 @@ export default function PDP() {
     fetch("/api/products").then((r) => r.json()).then((d) => {
       const found = (d.products || []).find((x) => x.id === id);
       setP(found || null);
+      setAllProducts(d.products || []);
       if (found) setOption(found.options?.values?.[0] || "");
     });
   }, [id]);
+
+  useEffect(() => {
+    if (user) fetch("/api/designs").then((r) => r.json()).then((d) => setMyDesigns(d.designs || [])).catch(() => {});
+  }, [user]);
 
   const unit = useMemo(() => {
     if (!p) return 0;
@@ -54,7 +63,21 @@ export default function PDP() {
         : { t: "Too small ⚠", cls: "bad", d: `${img.naturalWidth}×${img.naturalHeight}px — may look soft. A bigger photo will print much better.` });
     };
     img.src = url;
-    if (!user) { setDesign({ id: null, url, name: file.name, pendingFile: file }); say("Preview ready — login at checkout to save the design"); return; }
+    if (!user) {
+      const guest = { id: null, url, name: file.name, pendingFile: file };
+      // Keep a data-URL copy (≤2.5MB) so the design survives login and is
+      // uploaded for real at checkout — bigger files ask for login first.
+      if (file.size <= 2.5 * 1024 * 1024) {
+        const rd = new FileReader();
+        rd.onload = () => setDesign((d) => (d && d.name === file.name ? { ...d, dataUrl: rd.result } : d));
+        rd.readAsDataURL(file);
+        say("Preview ready — your design rides along to checkout");
+      } else {
+        say("Preview ready — login first so we can save designs over 2.5MB");
+      }
+      setDesign(guest);
+      return;
+    }
     setUploading(true);
     const fd = new FormData();
     fd.append("file", file);
@@ -65,7 +88,7 @@ export default function PDP() {
     else { setDesign({ id: null, url, name: file.name }); say(d.error || "Upload failed, preview only"); }
   };
 
-  const item = () => ({ productId: p.id, name: p.name, img: p.img, price: unit, qty, option, customText: text, designId: design?.id || null, designName: design?.name || "" });
+  const item = () => ({ productId: p.id, name: p.name, img: p.img, price: unit, qty, option, customText: text, designId: design?.id || null, designName: design?.name || "", designDataUrl: design?.id ? null : design?.dataUrl || null });
 
   return (
     <div className="wrap page">
@@ -84,7 +107,7 @@ export default function PDP() {
               {design && (
                 // eslint-disable-next-line @next/next/no-img-element
                 <img className="mock-design" src={design.url} alt="Your design preview"
-                  style={{ left: `${p.print.x}%`, top: `${p.print.y}%`, width: `${p.print.w}%`, height: `${p.print.h}%`, borderRadius: p.print.radius }} />
+                  style={{ left: `${p.print.x + (p.print.w - p.print.w * designScale) / 2}%`, top: `${p.print.y + (p.print.h - p.print.h * designScale) / 2}%`, width: `${p.print.w * designScale}%`, height: `${p.print.h * designScale}%`, borderRadius: p.print.radius }} />
               )}
               {text && !design && <div className="mock-text" style={{ left: `${p.print.x}%`, top: `${p.print.y + p.print.h / 2 - 6}%`, width: `${p.print.w}%` }}>{text}</div>}
               <span className="mock-cap">{design || text ? "LIVE PREVIEW — your design" : "Studio design shown — upload yours"}</span>
@@ -131,6 +154,27 @@ export default function PDP() {
             </div>
           </div>
           {quality && <div className={`quality ${quality.cls}`}><b>{quality.t}</b> — {quality.d}</div>}
+          {myDesigns.length > 0 && (
+            <>
+              <label className="fld-label">Or pick from My Designs</label>
+              <div className="design-strip">
+                {myDesigns.map((d) => (
+                  <button key={d.id} type="button" className={design?.id === d.id ? "on" : ""} title={d.name}
+                    onClick={() => { setDesign({ id: d.id, url: `/api/designs/${d.id}/raw`, name: d.name }); say("Design applied"); }}>
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img src={`/api/designs/${d.id}/raw`} alt={d.name} />
+                  </button>
+                ))}
+              </div>
+            </>
+          )}
+          {design && mode === "photo" && (
+            <div className="vscale" style={{ marginTop: 14 }}>
+              <span>Design size</span>
+              <input type="range" min="0.55" max="1.25" step="0.05" value={designScale} onChange={(e) => setDesignScale(+e.target.value)} style={{ flex: 1 }} />
+              <span>{Math.round(designScale * 100)}%</span>
+            </div>
+          )}
 
           <label className="fld-label">Add a name / text (optional)</label>
           <input className="inp full" maxLength={28} placeholder="e.g. Happy Birthday Aarav" value={text} onChange={(e) => setText(e.target.value)} />
@@ -158,6 +202,21 @@ export default function PDP() {
           <p className="note">Total for {qty}: <b style={{ color: "var(--sky-soft)" }}>{inr(unit * qty)}</b> · Bulk order (25+)? Prices drop automatically in your quote — mention it in the order note at checkout.</p>
         </div>
       </div>
+
+      {allProducts.filter((x) => x.id !== p.id).length > 0 && (
+        <section style={{ marginTop: 56 }}>
+          <div className="sec-head">
+            <div>
+              <span className="kicker">One design · whole setup</span>
+              <h2>Your design also <span className="hl">slaps</span> on these</h2>
+            </div>
+            <Link className="btn ghost" href="/shop">All products →</Link>
+          </div>
+          <div className="pgrid">
+            {[...allProducts.filter((x) => x.id !== p.id && x.cat === p.cat), ...allProducts.filter((x) => x.id !== p.id && x.cat !== p.cat)].slice(0, 3).map((x) => <ProductCard key={x.id} p={x} />)}
+          </div>
+        </section>
+      )}
     </div>
   );
 }

@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { useStore } from "../../components/StoreContext";
@@ -13,21 +13,44 @@ export default function Checkout() {
   const [addrId, setAddrId] = useState("");
   const [giftWrap, setGiftWrap] = useState(false);
   const [giftNote, setGiftNote] = useState("");
+  const [orderNote, setOrderNote] = useState("");
+  const [couponInput, setCouponInput] = useState("");
+  const [coupon, setCoupon] = useState(null); // {code, pct}
+  const [couponMsg, setCouponMsg] = useState("");
   const [paying, setPaying] = useState(false);
   const [placing, setPlacing] = useState(false);
   const [err, setErr] = useState("");
   const [form, setForm] = useState({ name: "", phone: "", pincode: "", line: "", city: "", state: "", landmark: "" });
 
+  const redirectedRef = useRef(false);
   useEffect(() => {
-    if (user === null) router.push("/login?next=/checkout");
-    if (user?.addresses?.length) setAddrId((user.addresses.find((a) => a.isDefault) || user.addresses[0]).id);
-  }, [user, router]);
+    // Redirect a guest exactly once; never react to later user-object changes
+    // (address saves / profile refreshes) by bouncing a paying customer out.
+    if (user === null && !redirectedRef.current) {
+      redirectedRef.current = true;
+      router.push("/login?next=/checkout");
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user === null]);
+  useEffect(() => {
+    if (user?.addresses?.length) setAddrId((prev) => prev || (user.addresses.find((a) => a.isDefault) || user.addresses[0]).id);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?.id, user?.addresses?.length]);
 
   const addr = user?.addresses?.find((a) => a.id === addrId);
   const subtotal = cart.reduce((s, x) => s + x.price * x.qty, 0);
+  const discount = coupon ? Math.round((subtotal * coupon.pct) / 100) : 0;
   const hasHeavy = cart.some((x) => HEAVY.has(x.productId));
-  const delivery = addr ? deliveryCharge(addr.pincode, hasHeavy, subtotal) : 0;
-  const total = subtotal + delivery + (giftWrap ? 49 : 0);
+  const delivery = addr ? deliveryCharge(addr.pincode, hasHeavy, subtotal - discount) : 0;
+  const total = subtotal - discount + delivery + (giftWrap ? 49 : 0);
+
+  const applyCoupon = async () => {
+    if (!couponInput.trim()) return;
+    const r = await fetch("/api/coupons/validate", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ code: couponInput }) });
+    const d = await r.json();
+    if (d.coupon) { setCoupon(d.coupon); setCouponMsg(`✓ ${d.coupon.code} applied — ${d.coupon.pct}% off`); }
+    else { setCoupon(null); setCouponMsg(d.error || "Invalid coupon"); }
+  };
 
   const addAddress = async (e) => {
     e.preventDefault();
@@ -39,9 +62,26 @@ export default function Checkout() {
 
   const placeOrder = async () => {
     setPlacing(true); setErr("");
+    // Guest designs were preview-only (kept as a data URL in the cart). Now that
+    // the customer is logged in, upload them for real so the studio gets the file.
+    const finalItems = [];
+    for (const it of cart) {
+      const { designDataUrl, ...rest } = it;
+      if (designDataUrl && !rest.designId) {
+        try {
+          const blob = await (await fetch(designDataUrl)).blob();
+          const fd = new FormData();
+          fd.append("file", blob, rest.designName || "design.png");
+          const up = await fetch("/api/upload", { method: "POST", body: fd });
+          const ud = await up.json();
+          if (ud.design) rest.designId = ud.design.id;
+        } catch {}
+      }
+      finalItems.push(rest);
+    }
     const r = await fetch("/api/orders", {
       method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ items: cart, addressId: addrId, giftWrap, giftNote }),
+      body: JSON.stringify({ items: finalItems, addressId: addrId, giftWrap, giftNote, orderNote, couponCode: coupon?.code || "" }),
     });
     const d = await r.json();
     setPlacing(false);
@@ -89,6 +129,11 @@ export default function Checkout() {
             <label className="check"><input type="checkbox" checked={giftWrap} onChange={(e) => setGiftWrap(e.target.checked)} /> Gift wrap (+₹49) — prices hidden inside</label>
             <input className="inp full" style={{ marginTop: 12 }} placeholder="Gift note (optional) — we handwrite it" value={giftNote} onChange={(e) => setGiftNote(e.target.value)} />
           </div>
+
+          <div className="panel" style={{ marginTop: 16 }}>
+            <h3>Note for the studio (optional)</h3>
+            <textarea className="inp full" rows={2} maxLength={500} placeholder="Anything we should know? Design tweaks, bulk quote (25+ pieces), delivery instructions…" value={orderNote} onChange={(e) => setOrderNote(e.target.value)} />
+          </div>
         </div>
 
         <div className="panel summary-panel">
@@ -96,7 +141,13 @@ export default function Checkout() {
           {cart.map((x, i) => (
             <div className="sum-row" key={i}><span>{x.name} × {x.qty}</span><b>{inr(x.price * x.qty)}</b></div>
           ))}
+          <div className="coupon-row">
+            <input className="inp" placeholder="Coupon code (try WELCOME10)" value={couponInput} onChange={(e) => setCouponInput(e.target.value.toUpperCase())} />
+            <button className="btn ghost" type="button" onClick={applyCoupon}>Apply</button>
+          </div>
+          {couponMsg && <p className={coupon ? "pin-ok" : "err"} style={{ margin: "8px 0" }}>{couponMsg}</p>}
           <div className="sum-row"><span>Subtotal</span><b>{inr(subtotal)}</b></div>
+          {discount > 0 && <div className="sum-row"><span>Coupon {coupon.code} (−{coupon.pct}%)</span><b style={{ color: "#3ddc97" }}>−{inr(discount)}</b></div>}
           <div className="sum-row"><span>Delivery</span><b>{delivery === 0 ? "FREE 🎉" : inr(delivery)}</b></div>
           {giftWrap && <div className="sum-row"><span>Gift wrap</span><b>{inr(49)}</b></div>}
           <div className="sum-row total"><span>Total</span><b>{inr(total)}</b></div>

@@ -29,10 +29,24 @@ export default function Admin() {
   const [custQuery, setCustQuery] = useState("");
   const [lowOnly, setLowOnly] = useState(false);
   const [expanded, setExpanded] = useState(null);
+  const [coupons, setCoupons] = useState([]);
+  const [newCoupon, setNewCoupon] = useState({ code: "", pct: 10 });
 
   const load = () => {
     fetch("/api/admin/orders").then((r) => r.json()).then((d) => { if (d.orders) setData(d); else setErr(d.error || "Not authorised"); });
     fetch("/api/products").then((r) => r.json()).then((d) => setProducts(d.products || []));
+    fetch("/api/admin/coupons").then((r) => r.json()).then((d) => setCoupons(d.coupons || []));
+  };
+  const toggleCoupon = async (c) => {
+    const r = await fetch("/api/admin/coupons", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ code: c.code, active: !c.active }) });
+    const d = await r.json();
+    if (d.coupons) setCoupons(d.coupons);
+  };
+  const addCoupon = async () => {
+    const r = await fetch("/api/admin/coupons", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(newCoupon) });
+    const d = await r.json();
+    if (d.coupons) { setCoupons(d.coupons); setNewCoupon({ code: "", pct: 10 }); }
+    else setErr(d.error || "Could not add coupon");
   };
   useEffect(() => {
     if (user === null) router.push("/login?next=/admin");
@@ -109,6 +123,7 @@ export default function Admin() {
         <button type="button" className={tab === "orders" ? "on" : ""} onClick={() => setTab("orders")}>Orders ({orders.length})</button>
         <button type="button" className={tab === "customers" ? "on" : ""} onClick={() => setTab("customers")}>Customers ({customers.length})</button>
         <button type="button" className={tab === "products" ? "on" : ""} onClick={() => setTab("products")}>Products &amp; Stock</button>
+        <button type="button" className={tab === "coupons" ? "on" : ""} onClick={() => setTab("coupons")}>Coupons ({coupons.length})</button>
       </div>
 
       {tab === "orders" && (
@@ -146,6 +161,8 @@ export default function Admin() {
                     <div className="ao-detail">
                       <p><b>Deliver to:</b> {o.address.name} · {o.address.phone}<br />{o.address.line}, {o.address.city}, {o.address.state} — {o.address.pincode}</p>
                       {o.giftNote && <p><b>Gift note:</b> “{o.giftNote}”{o.giftWrap ? " · gift wrap added" : ""}</p>}
+                      {o.orderNote && <p><b>Customer note:</b> “{o.orderNote}”</p>}
+                      {o.coupon && <p><b>Coupon:</b> {o.coupon.code} (−{o.coupon.pct}%, saved {inr(o.coupon.discount)})</p>}
                       <label className="ao-jump">Jump to stage{" "}
                         <select className="inp" value={o.statusIdx} onChange={(e) => setStatus(o, Number(e.target.value))} aria-label={`Set status for ${o.id}`}>
                           {STATUSES.map((s, i) => <option key={s} value={i}>{s}</option>)}
@@ -228,6 +245,29 @@ export default function Admin() {
             {visibleProducts.length === 0 && <p className="lead" style={{ fontSize: 15 }}>Nothing is low on stock right now.</p>}
           </div>
           <p className="note">Price changes save when you click away from the field. New prices apply to new orders immediately. Stock at 0 shows SOLD OUT in the shop and blocks checkout for that product.</p>
+        </div>
+      )}
+
+      {tab === "coupons" && (
+        <div className="panel">
+          <h3>Coupons — validated on the server at checkout</h3>
+          <div className="admin-products">
+            {coupons.map((c) => (
+              <div className="admin-product" key={c.code}>
+                <b style={{ letterSpacing: 1 }}>{c.code}</b>
+                <span className="muted">{c.pct}% off</span>
+                <span className="status-pill" style={c.active ? {} : { opacity: 0.45 }}>{c.active ? "ACTIVE" : "OFF"}</span>
+                <button type="button" className="restock-btn" onClick={() => toggleCoupon(c)}>{c.active ? "Disable" : "Enable"}</button>
+              </div>
+            ))}
+            {!coupons.length && <p className="lead" style={{ fontSize: 15 }}>No coupons yet.</p>}
+          </div>
+          <div className="coupon-row" style={{ marginTop: 16, maxWidth: 460 }}>
+            <input className="inp" placeholder="NEW CODE" value={newCoupon.code} onChange={(e) => setNewCoupon({ ...newCoupon, code: e.target.value.toUpperCase() })} />
+            <input className="inp" type="number" min="1" max="90" style={{ width: 90 }} value={newCoupon.pct} onChange={(e) => setNewCoupon({ ...newCoupon, pct: e.target.value })} />
+            <button type="button" className="btn" onClick={addCoupon}>Add</button>
+          </div>
+          <p className="note">Discount applies to the product subtotal; free-shipping threshold (₹699) is checked after the discount.</p>
         </div>
       )}
     </div>

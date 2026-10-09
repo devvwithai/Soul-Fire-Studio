@@ -10,7 +10,7 @@ export async function GET(req) {
   const q = (url.searchParams.get("q") || "").trim().toLowerCase();
   const status = url.searchParams.get("status") || "";
 
-  const allOrders = [...db.orders].sort((x, y) => y.createdAt.localeCompare(x.createdAt));
+  const allOrders = [...db.orders].sort((x, y) => new Date(y.createdAt) - new Date(x.createdAt));
   const revenue = allOrders.filter((o) => o.status !== "Cancelled").reduce((s, o) => s + o.total, 0);
 
   let orders = allOrders;

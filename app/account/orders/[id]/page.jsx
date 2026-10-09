@@ -43,6 +43,8 @@ export default function OrderDetail() {
             <h3>Delivery address</h3>
             <p className="lead" style={{ fontSize: 14.5 }}>{o.address.name} · {o.address.phone}<br />{o.address.line}, {o.address.city}, {o.address.state} — {o.address.pincode}</p>
             {o.giftNote && <p className="note">🎁 Gift note: “{o.giftNote}”</p>}
+            {o.orderNote && <p className="note">📝 Your note: “{o.orderNote}”</p>}
+            {o.coupon && <p className="note">🏷️ Coupon {o.coupon.code} applied — you saved {inr(o.coupon.discount)}</p>}
           </div>
         </div>
       </div>
