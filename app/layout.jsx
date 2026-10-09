@@ -1,10 +1,10 @@
-import { Michroma, Space_Grotesk } from "next/font/google";
+import { Archivo, Inter } from "next/font/google";
 import "./globals.css";
 import { StoreProvider } from "../components/StoreContext";
 import Header, { Footer } from "../components/Header";
 
-const display = Michroma({ weight: "400", subsets: ["latin"], variable: "--font-display" });
-const body = Space_Grotesk({ subsets: ["latin"], variable: "--font-body" });
+const display = Archivo({ weight: ["600", "700", "800", "900"], subsets: ["latin"], variable: "--font-display" });
+const body = Inter({ weight: ["400", "500", "600", "700"], subsets: ["latin"], variable: "--font-body" });
 
 const SITE = "https://soul-fire-studio.vercel.app";
 

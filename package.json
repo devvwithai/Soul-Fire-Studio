@@ -5,7 +5,8 @@
     "jose": "^6.1.0",
     "next": "^15.5.4",
     "react": "^19.1.0",
-    "react-dom": "^19.1.0"
+    "react-dom": "^19.1.0",
+    "three": "^0.186.1"
   },
   "description": "Soulfire Studio — custom sublimation printing: mugs, t-shirts, mouse pads, keychains & bottles. Sky blue on black.",
   "name": "soulfire-studio",
